@@ -1,0 +1,15 @@
+DISPLAY  devicename[:]=(hardwareType,[n|(n1[,n2]...)],[m|(m,f)])
+
+DISPLAY: Loads console codepage management capabilities
+
+devicename    a valid device name (which in this version is ignored). Use any
+              (such as CON)
+hardwareType  a supported hardware type label (such as EGA or VGA)
+n             default hardware codepage (for one hardware codepage). It will
+              normally be 437
+n1, n2,...    hardware codepages, if more than one (usually you'll have to use
+              third party ARABIC/HEBREW drivers)
+m             Number of buffer for prepared codepages (1 by default)
+f             Number of subfonts (1=8x8, 2=8x8,8x14, 3=8x8, 8x14, 8x16)
+              (automatically detected by default)
+

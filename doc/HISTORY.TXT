@@ -1,0 +1,66 @@
+==== Ver 0.06 (Aitor SANTAMARIA MERINO)
+- Added version and copyright notice at boot 
+- Added Int2Fh interface, functions 2,3,Eh,Fh
+- Added MODECON.EXE to operate with those functions
+- Added use of bCPSoft and bCPHard (always 437)
+==== Ver 0.07 (Ilya V. Vasilyev)
+- Fixed: problems working with VGA
+- Minor optimizations and fixes
+==== Ver 0.07 (Aitor SANTAMARIA MERINO)
+- Minor optimizations and fixes
+- Complete rewrite of PREPARE/SELECT: SELECT has an independent pool
+- PREPARE Pools: array of pools (as many as you want at compile time) managed 
+  with a LRU scheme
+- MODECON: PREPARE=PREP, SELECT=SEL (as suggested by Ilya)
+- Ready for commandline parsing
+==== Ver 0.08 (Aitor SANTAMARIA MERINO)
+- commandline syntax
+  DISPLAY  devname[:]=(EGA,n,m)
+  for n=hardware cp number, m=number of pools to be used
+- SELECT: trivial if selected=current
+- frees environment block, saving resident space
+- Computes correctly the tablesize for EGA adapters (and now yes, it
+  should work with EGA!!)
+==== Ver 0.09 (Aitor SANTAMARIA MERINO)
+- Communicate with other drivers: KEYB, PRINT.COM, ARABIC/HEBREW, GRAFTABL
+- Source restructure in a modular way, to make it possible to create DISPLAY 
+  or PRINTER
+- now reports errors with error codes
+- returns information about codepages, AX=AD03h
+- uses that table and allows to specify buffer to fill (no longer LRU)
+- allows to use more than one hardware codepage at a time (you'll need
+  ARABIC/HEBREW)
+- Uses different font sizes by using subfonts (if not given: automatically
+  detected)
+- refuses to load with some versions of DR-KEYB
+- hardcoded localisation is possible (English and Spanish are supported)
+- if hardware selected, "active buffer" is unused, but codepage kept. E.g.:
+    DISPLAY CON=(EGA,437,1)
+    MODECON CP PREPARE (850) CP850.RAW
+    MODECON CP SELECT 850
+    MODECON CP PREPARE (858) CP858.RAW
+    MODECON CP SELECT 437
+    MODECON CP SELECT 850   ;   succeeeds!!
+- improved documentation
+- MODECON: reads extended error and reports it
+- MODECON: returns errors in errorlevel
+- MODECON: MODECON CP now reports full information
+- MODECON: MODECON CP REFRESH to refresh current codepage
+==== Ver 0.10 (Aitor SANTAMARIA MERINO)
+- Ability to parse CPI files in the prepare routine. Only simple CPI files, of
+DISPLAY-type, uncompressed, 3 fonts per codepage
+==== Ver 0.11 (Aitor SANTAMARIA MERINO)
+- Support for CGA (untested)
+- Buffers are allocated to XMS when available
+- Locks GRAFTABL when DISPLAY is present (returns: not installed, but NOT ok to install)
+- Better parsing (now recognises more blank characters)
+- Turned into an EXE to bypass kernel bug
+- Select buffer is now resizable according to number of subfonts, saves some bytes on CGA and EGA (untested)
+- The maximum number of buffers now depends on subfont size (up to 8 instead of 5). Real maximum determined by
+  available memory
+- FIX: when specifying subfonts explicitely, you could set more than the maximum (was 5, now 8)
+==== Ver 0.12 (Aitor SANTAMARIA MERINO)
+- Generic IOCTL pseudo-call: generic ioctl request packet support, changing more than one codepage at a time
+- BUGFIX: GRAGTABL incompatibility
+- BUGFIX: More than one hardware CP makes it not to work properly
+- BUGFIX: using 6 buffers makes it crash
