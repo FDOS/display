@@ -57,7 +57,7 @@ True2f:
                 test    al,0ffH
                 jnz     mDno0
 
-                mov     al,0ffH         ; required for MS-DISPLAY compatibility
+                mov     al,0ffH         ; Installation check
                 mov     bx, Version     ; return version in BX (major.minor)
                                         ; bh=0 will stand for the beta versions of
                                         ; FreeDOS DISPLAY
@@ -82,10 +82,6 @@ retClear:       popf                    ; restore flags,
                 clc                     ; clear carry (success)
                 retf    2               ; and return, discarding flags
 retSet:
-;mov word [cs:wHardCPs],ax
-;clc
-;add ax,[cs:wHardCPs]
-;mov [cs:wHardCPs],ax
                 popf
                 stc                     ; set carry: error
                 retf    2

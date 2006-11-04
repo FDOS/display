@@ -6,14 +6,11 @@
    FD-DISPLAY.SYS/PRINTER.SYS: implements codepage management (generic IOCTL)
    for the console and printer devices
 
-   Copyright (C) 2002-2005 by Aitor SANTAMARIA_MERINO
-   aitorsm@inicia.es
+   Copyright (C) 2002-2006 by Aitor SANTAMARIA_MERINO
+   aitor.sm@gmail.com
 
-   Contributed code and first steps 2000 by  Ilya V. VASILYEV
-   hscool@netclub.ru
-
-   Version  : 0.12
-   Last edit: 2005-11-06 (ASM)
+   Version  : 0.13b
+   Last edit: 2006-08-06 (ASM)
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the Free
@@ -31,6 +28,21 @@
 
   ===========================================================================
 
+   The following hard-ware specific code is included:
+
+   EGA/VGA adapter     version 0.13b
+                       2002-2006 under the GNU-GPL license
+                                      by  Aitor SANTAMARIA_MERINO
+                                          aitor.sm@gmail.com
+                                      and Ilya V. VASILYEV 
+                                          hscool@netclub.ru
+
+   CGA adapter (GRAFTABL)
+                       version 0.13
+                       2002-2006 under the GNU-GPL license
+
+  ===========================================================================
+
 
 
 0.- INTRODUCTION
@@ -38,55 +50,29 @@
 
 
 DISPLAY.SYS and PRINTER.SYS are device drivers that supply existing drivers
-with codepage replacement capabilities (generic IOCTL interface).
+with codepage replacement capabilities (through the IOCTL interface).
 
 Both routines have hardware type dependant routines to do the actual job, as
 well as (mainly) two other routines, one to SELECT the wanted codepage,
 interfacing with whichever other DOS programs is due, and interfacing between
 the fixed (firmware) and the configurable (software) codepages, and a second
 routine, PREPARE, to manage several buffers with information about different
-codepages. DISPLAY also hooks some interrupt vectors to interface with the rest
-of DOS. However, they share much of the code, so that the sources supplied here
-are supposed to be valid for both.
+codepages. DISPLAY also hooks the multiplexer (2Fh) interrupt vector to
+interface with the rest of DOS. However, they share much of the code, so that
+the sources supplied here are supposed to be valid for both.
 
 Communication between the user and the device driver to change codepage is made
 through IOCTL calls, where a generic IOCTL call informs the device (e.g. CON)
 that a codepage change is starting, and that the contents of a CPI (Codepage
-Information) file is going to be sent through the IOCTL IN line. Usual DOS
+Information) file is going to be sent through the IOCTL WRITE line. Usual DOS
 kernel device drivers for which codepage selection has a meaning, such as CON
 or PRN, do not implement the response of these calls. The mission of 
 DISPLAY.SYS and PRINTER.SYS is to implement these functions without disturbing
 with the rest device driver calls.
 
-The difference between both is that DISPLAY will monitor the video adapter
-interrupt (10h) to trap mode changes and restablish the codepage when it is
-required, and that it communicates with the rest of the world through the DOS
-multiplexer interrupt (2Fh), MuX code ADh.
-
-The codepage preparation is usually made by the DOS MODE command, whereas the
-selection is directly made by the kernel-loadable NLSFUNC component, or
-improperly, by the DOS MODE command. When preparing the codepages, MODE sends
-to DISPLAY/PRINTER the information of codepages included into CPI files. The
-FreeDOS repository should have the latest MODE needed and sets of CPI files.
-
-Also notice that Eric Auer has implemented into MODE the capability of using
-self-compressed CPX files. As the file is compressed into a CPI before it is
-sent to DISPLAY, there's no problem with using these CPX files in what concerns
-DISPLAY or PRINTER.
-
-At this stage of development, nor DISPLAY neither PRINTER are device drivers
-that communicate through device driver calls. They are loadable TSRs, and in
-the case of DISPLAY, it communicates with the rest of the world through a
-slightly enlarged muliplexer interrupt. PRINTER has no binary, being one of
-the reasons that it has no way to interface with programs outside. It is
-intended that they will work as they should in version 1.0. For a list of
-other limitations of current version, see the sections below.
-
-Ilya V. Vasilyev is the author of the first DISPLAY-style program, that
-appeared inside his CHCP05b package. Ilya's code has place today as:
-- the video interrupt manager
-- the EGA hardware type selection routines
-for which I am deeply grateful.
+Both drivers are linked to hardware-specific routines, that may belong to
+third party developers. Typical hardware for DISPLAY includes different
+graphic adapters, and for PRINTER different printer adapters.
 
 
 0.1.- Who should use the software
@@ -97,28 +83,32 @@ printer in FreeDOS (or any other DOS).
 
 0.2.- Compatibility
 
-DISPLAY.SYS supports the following hardware types (for graphic adapters):
+At this stage of development (pre-1.0), DISPLAY and PRINTER do not interface
+through the usual device driver interface, but through the multiplexer. There
+is no PRINTER driver, due to:
+- PRINTER does not have multiplexer interface
+- there are no printer-specific routines submitted to the FreeDOS project
 
-   CGA (*)
-   EGA
-   VGA
-   LCD
+The codepage information should come as a CPI file (older RAW files are
+deprecated and unsupported).
 
-PRINTER.SYS does not have an executable file yet, because:
-(a) there is no hardware supported
-(b) it cannot be interfaced
+Currently supported hardware by DISPLAY:
 
-(For more information about the supported hardware, see 204.txt)
+   CGA adapters (i.e. GRAFTABL)
+   EGA adapters
+   VGA adapters
+   LCD adapters
+   
+Please see the hardware specific documentation for more information.
 
-DISPLAY/PRINTER 0.12 is supplied under the GNU-GPL license, and it admits easy
-adding of other hardware types, by just implementing the routines that do the
-hardware codepage replacement. For more information, you should read the
-FreeDOS technote 204, which is included in this documentation (as 204.txt).
+DISPLAY/PRINTER 0.13 CORE SOURCE is supplied under the GNU-LGPL license.
+This version is linked to EGA/VGA and CGA code, which are both distributed
+under the GNU-GPL version, thus the whole package comes under the GNU-GPL.
 
-(*) The CGA support is new in DISPLAY 0.11, but not yet documented into 204.txt
-
-Information is obtained from CPI from the appropriate MODE version. Older RAW
-files are deprecated and not supported.
+If you wish to create new hardware specific routines, please read the
+accompaining documentation. Please do make sure not to link version-
+incompatible sources. I.e. you cannot compile the EGA/VGA driver with a
+third party closed-source hardware specific code.
 
 
 0.3.- Limitations and incompatibilities
@@ -131,25 +121,17 @@ unspecific versions of FreeDOS MODE (please always check the documentation of
 MODE to see the versions of DISPLAY for which MODE works).
 
 
-The following limitations also apply to DISPLAY/PRINTER 0.12:
-
-- Currently, the driver only admits DISPLAY-type CPI files, uncompressed and
-with simple contents (e.g. not admitting those having more than three subfonts
-per codepage)
-- It does NOT interface with IOCTL calls, so it does NOT work with other MODE
-  programs than FreeDOS MODE
-
-They are to be overcome on later versions.
-
-
 0.4.- Version
 
-This is version 0.12 of FreeDOS DISPLAY.SYS.
+This is version 0.13b of FreeDOS DISPLAY.
+
+(version 0.13b is a bug-fixed version of version 0.13. This document will refer
+to version 0.13 to mean version 0.13b)
 
 
 0.5.- Copyright
 
-Version 0.12 of this program is distributed under the GNU General Public
+Version 0.13 of this program is distributed under the GNU General Public
 License version 2.0.
 
 This program is free software; you can redistribute it and/or modify it
@@ -199,7 +181,7 @@ http://www.freedos.org/bugs/bugzilla/
 Alternatively, write an email to
 
 Aitor SANTAMARIA MERINO
-aitorsm@inicia.es
+aitor.sm@gmail.com
 
 
 0.8.- File history
@@ -220,7 +202,10 @@ files have been written anew by Aitor Santamaría Merino.
        EXE file (instead of COM)
        prepared buffers loaded into XMS (if available)
 0.12:  Ability to prepare more than 1 codepage at a time (Generic IOCTL pseudo-call)
-
+0.13:  Core code separated from the hardware specific code (and change on license)
+       Heavy source re-structure
+       New commandline parsing
+       Fix the crash when-no-XMS bug
 
 0.9.- Acknowledgements
 
@@ -228,11 +213,40 @@ I am sincerely very grateful to a large number of people that have helped me.
 
 Henrique Peron for his help and bug reports.
 
-Ilya V. Vasilyev for the original DISPLAY code.
+Ilya V. Vasilyev for the original DISPLAY, and presently for the EGA/VGA
+specific code.
 
 
-1.- DISPLAY features
-====================
+1.- DISPLAY and PRINTER features
+================================
+
+At this stage of development, nor DISPLAY neither PRINTER are device drivers
+that communicate through device driver calls. They are loadable TSRs, and in
+the case of DISPLAY, it communicates with the rest of the world through a
+slightly enlarged muliplexer interrupt. PRINTER has no binary, being one of
+the reasons that it has no way to interface with programs outside. It is
+intended that they will work as they should in version 1.0. For a list of
+other limitations of current version, see the sections below.
+
+As mentioned above, there is no PRINTER executable file. There are only three
+diferences on DISPLAY.SYS and PRINTER.SYS:
+- DISPLAY.SYS has a multiplexer interface (PRINTER doesn't)
+- Both have their font signature in their files (1 DISPLAY, 2 PRINTER)
+- DISPLAY interfaces with KEYB, PRINTER with PRINT)
+
+The codepage preparation is usually made by the DOS MODE command, whereas the
+selection is directly made by the kernel-loadable NLSFUNC component, or
+improperly, by the DOS MODE command. When preparing the codepages, MODE sends
+to DISPLAY/PRINTER the information of codepages included into CPI files. The
+FreeDOS repository should have the latest MODE needed and sets of CPI files.
+
+Also notice that Eric Auer has implemented into MODE the capability of using
+self-compressed CPX files. As the file is compressed into a CPI before it is
+sent to DISPLAY, there's no problem with using these CPX files in what concerns
+DISPLAY or PRINTER.
+
+DISPLAY 0.12 EGA/VGA specific routine is able to admit DR-FONTs. Note however
+that you would need a DR-FONT-aware MODE.
 
 
 1.1.- Commandline syntax
@@ -241,13 +255,14 @@ Be sure that no other DISPLAY program (identified though int2Fh, MUX=ADh,
 fn=00) has been previously loaded.
 The commandline is of the form:
 
-   DISPLAY   devname[:]=(hwname,[hwcps],buffers)
+   DISPLAY   devname[:]=(hwname,[hwcps],buffers)   [/C] [/V] [/NOHI]
+   DISPLAY   devname[:]=(hwname,[hwcps],(buffers,param))   [/C] [/V] [/NOHI]
 
 
 devname   Name of the device for which generic IOCTL is implemented
           (DUMMY at the moment, usually CON)
 
-hwname    Name of the hardware adapter (CGA, EGA,...). See 204.txt for a list
+hwname    Name of the hardware adapter (CGA, EGA,...). See NewHW.txt for a list
 
 hwcps     List of hardware codepages. Either a single number (for a single
           codepage) or a list   (n1,n2,...)  for several hardware codepages.
@@ -257,6 +272,16 @@ hwcps     List of hardware codepages. Either a single number (for a single
 buffers   A single number representing the number of buffers that you want to
           allocate, or a pair  (buffers,subfonts) with the number of buffers
           and the number of subfonts wanted
+          
+param     This optional parameter is passed to the hardware-specific routine.
+          See the hardware-specific routine documentation for more information
+          
+/C				ExClusive:  will not load if there is another DISPLAY loaded
+
+/NOHI     Forbid to use XMS to store the prepare buffers
+
+/V        Verbose: prints extended information
+                    
 
 
 Example:
@@ -323,21 +348,8 @@ UPX:          http://upx.sourceforge.net/
 COM2EXE:      get Arakdy Belousov's CuteMOUSE
 
 Respect to the structure of the program, there is a main assembler where the
-rest of the files are included. In particular:
-
-  MUXINT.ASM        Multiplexer interrupt  (DISPLAY)
-  VIDEOINT.ASM      Video interrupt 10h (DISPLAY)
-
-  STRINGS.EN        Message strings in English
-
-  HWINITD.ASM       Initialisation routines and hardware tables (DISPLAY)
-  HWINITP.ASM       Initialisation routines and hardware tables (PRINTER)
-
-  SELECTD.ASM       Resident routines for DISPLAY
-  SELECTP.ASM       Resident routines for PRINTER
-
-  EGAR.ASM          Resident routines for EGA/VGA
-  CGAR.ASM          Resident routines for CGA
+rest of the files are included. For the filelist, please check the DISPLAY.ASM
+documentation.
 
 Finally, the program TEST by Ilya V. Vasilyev is included. It helps testing
 DISPLAY in the different screen modes.

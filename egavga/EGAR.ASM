@@ -1,14 +1,59 @@
-; =====================================================================
+
+;   FreeDOS CGA/EGA/VGA Driver    v0.13
 ;
-;   EGA/VGA  codepage selection routines
+;   ===================================================================
 ;
-;   Copyright (C) 9 Aug 2000 Ilya V. Vasilyev aka AtH//UgF@hMoscow
-;   e-mail: hscool@netclub.ru
-;   ( minimum touches by Aitor )
+;   Codepage management (Generic IOCTL)
+;   for CGA, EGA, VGA graphic adapters
 ;
+;   Copyright (C) 2002-05 Aitor Santamar¡a_Merino
+;   email:  aitorsm-AT-fdos.org
+;
+;   Ilya V. Vasilyev aka AtH//UgF@hMoscow
+;   email:  hscool-AT-netclub.ru
+;
+;   WWW:    http://www.freedos.org/
+;
+;   ===================================================================
+;
+;   This program is free software; you can redistribute it and/or modify
+;   it under the terms of the GNU General Public License as published by
+;   the Free Software Foundation; either version 2 of the License, or
+;   (at your option) any later version.
+;
+;   This program is distributed in the hope that it will be useful,
+;   but WITHOUT ANY WARRANTY; without even the implied warranty of
+;   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;   GNU General Public License for more details.
+;
+;   You should have received a copy of the GNU General Public License
+;   along with this program; if not, write to the Free Software
+;   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+;
+;   ===================================================================
+;
+;   ROUTINES:
+;
+;   SModeTest    - Ilya   - Identify the current screen mode
+;   EGASSelect   - Ilya   - Select a software codepages for CGA cards
+;   Old10Call    - Ilya   - Call previous int 10h handler
+;   EGAHSelect   - Ilya   - Select a hardware codepages for CGA cards
+;   ReadSubFont  - Aitor  - Utility to read a subfont from a CPI file
+;   ReadCodepageDisplay
+;                - Aitor  - Utility to prepare a EGA-type codepage
+
 ;               .       .       .       .       .       line that rules
 ;
 
+
+%include        "videoint.asm"
+
+
+EGAName         DB      "EGA     "
+wNumSubFonts    DW      0               ; number of subfonts (m)
+
+wMinFontSize:   DW      0               ; minimum font size
+                                        ; 1=8x8  2=8x8,14  3=8x8,14,16
 
 
 ; Fn:   SModeTest
@@ -39,6 +84,7 @@ sfr:            ret
 ; Fn:   EGASSelect
 ; Does: Set a proper localized font for a given video mode
 ; In:   AL Screen mode (-1 if unknown)
+;       (UnknownEGASSelect is the entry point for DISPLAY's SELECT)
 ; Mod:  (none)
 ;
 ; Summary: self-determine rows per character, then call the
@@ -49,6 +95,9 @@ sfr:            ret
 ; NOTES:
 ; - AX, CX, DS, ES, DI  will be used and not preserved
 ;
+
+UnknownEGASSelect:
+                mov     al,-1           ; unknown vide mode!
 
 EGASSelect:
                 push    cs              ; we require ES==CS
@@ -166,7 +215,7 @@ old10call:      xor     bx, bx
 
 
 
-; Fn:   RefreshHWcp
+; Fn:   EGAHSelect
 ; Does: Sets the hardware codepage, helped by the old int 10h handler
 ; In:   CL: index of hardware font page to select (0, 1,...)
 ; Out:  -
@@ -223,3 +272,150 @@ RefreshHWcpEnd:
                 pop     ax
 
                 ret
+
+; Fn:   ReadSubfont
+; Does: Reads a subfont from the appropriate section of the CPI file
+; In:   DS:SI->  position in the CPI file where the subfont starts
+;       DL:      number of buffer to be transferred (0,1,...)
+; Out:  CF set on error, clear otherwise
+;       If success: SI point to the byte immediately after the whole block
+;       AX,CX: trashed
+;
+; FORMAT OF THE SUBFONT  (offsets respect to DI)
+; ---------------------
+; 0  DB  Size:     values 16, 14 or 8
+; 1  DB  witdth:   MUST be 8
+; 2  DW  (ignored)
+; 4  DW  n.chars:  MUST be 255
+; 6  <data>
+;
+
+ReadSubfont:
+                ;**************  check DB 8 annd DW 255
+                mov     al,[ds:si+1]
+                cmp     al,8
+                jne     ReadSubfontError
+                mov     ax,[si+4]
+                cmp     ax,256
+                jne     ReadSubfontError
+
+                ;************** check the number of subfonts
+                mov     al,[si]         ; get the subfont size to ax
+                mov     cx,[cs:wNumSubFonts]
+
+                cmp     al,8
+                je      ComputeSizeToMove
+                cmp     cx,2
+                jb      ReadSubfontError
+
+                cmp     al,14
+                je      ComputeSizeToMove
+                cmp     cx,3
+                jb      ReadSubfontError
+
+                cmp     al,16
+                je      ComputeSizeToMove
+
+                ;       When size is unsupported, skip it, but don't
+                ;       return an error
+
+                mov     ah,al
+                xor     al,al
+                add     ax,6
+                add     si,ax
+                clc
+                ret
+
+                
+                ;************** add the appropriate offset
+
+ComputeSizeToMove:
+                add     si,6            ; now points to the data
+
+                xor     di,di           ; relative offset=0
+                mov     cx,2048         ; initialize to 2048 bytes (8x256)
+                
+                cmp     al,8
+                je      ReadSubfontMoveData
+
+                add     di,cx           ; destination now skips 8x8
+                mov     cx,3584         ; set to 3584 bytes (14x256)
+                cmp     al,14
+                je      ReadSubfontMoveData
+
+                cmp     al,16
+                jne     ReadSubfontError
+                add     di,cx           ; destination now skips 8x14
+                mov     cx,4096         ; set to 4096 bytes (16x256)
+
+                ;************** Move the data
+                ; CX: number of bytes to move
+                ; DI: relative offset in the file
+                
+ReadSubfontMoveData:
+                call    MoveDataToBuffer
+                ret                     ; returns with carry as appropriate
+
+ReadSubfontError:
+
+                stc
+                ret
+
+; Fn:   ReadCodepageDisplay
+; Does: Reads a codepage of DISPLAY type
+; In:   DS:SI -> position in the CPI file where the font header starts
+;       DX:      number of the buffer where to store the font (0,1,...)
+; Out:  CF=1     failure (PREPARE must abort)
+;       CF=0     success
+;                DS:SI-> byte immediately after the font
+;
+; FONT HEADER
+; ===========
+;  0  DW   *  Signature (1) (FONT)
+;  2  DW   *  Number of subfonts (usually 3)
+;  4  DW   *  Size of the whole subfonts block (usually 9746 bytes)
+;
+; (*)  to be tested
+
+
+ReadCodepageDisplay:
+                mov     ax,[si]      ; it is a FONT
+                cmp     ax,1
+                jne     ReadCodepageDisplayError
+
+                mov     cx,[si+2]
+
+;                mov     ax,[si+2]      ; we force it to have 3 subfonts
+;                cmp     ax,3
+;                jne     ReadCodepageDisplayError
+
+;                mov     ax,[si+4]      ; we force it to be 9746
+;                cmp     ax,9746
+;                jne     ReadCodepageDisplayError
+
+                ;**************  read the data
+                add     si,6
+
+ReadSubs:
+
+                push    cx
+                call    ReadSubfont
+                pop     cx
+                jc      ReadCodepageDisplayError
+                loop    ReadSubs
+
+;                call    ReadSubfont
+;                jc      ReadCodepageDisplayEnd
+;
+;                call    ReadSubfont
+;                jc      ReadCodepageDisplayEnd
+;
+;                call    ReadSubfont
+
+ReadCodepageDisplayEnd:
+                ret
+ReadCodepageDisplayError:
+                stc
+                ret
+
+

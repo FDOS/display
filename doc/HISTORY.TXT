@@ -64,3 +64,23 @@ DISPLAY-type, uncompressed, 3 fonts per codepage
 - BUGFIX: GRAGTABL incompatibility
 - BUGFIX: More than one hardware CP makes it not to work properly
 - BUGFIX: using 6 buffers makes it crash
+==== Ver 0.13 (Aitor SANTAMARIA MERINO)
+- Heavy source re-structure. Separation of hardware-specific routines from DISPLAY/PRINTER generic
+- Change of license: core files under LGPL. EGA/VGA and CGA: under GPL
+- New commandline parsing
+- /NOHI: forbid XMS
+- /C: exClusive: do not load if DISPLAY present
+- /V: Verbose
+- BUGFIX: crash when HIMEM not present
+- Software codepage have precedence over hardware codepage
+- EGA/VGA: support for DR-FONTS
+==== Ver 0.13b (Aitor SANTAMARIA MERINO)
+- Bug in the selection routine fixed
+- Bug in CGAr: it now hoooks INT10h
+- The software selection routine is now trully EGA/VGA independent
+- Documentation changes
+
+
+
+
+
